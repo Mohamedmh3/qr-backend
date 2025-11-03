@@ -20,7 +20,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
+# Allowed hosts - include Vercel domains
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+if os.getenv('VERCEL', False):
+    ALLOWED_HOSTS.extend(['.vercel.app', '.now.sh'])
 
 
 # Application definition

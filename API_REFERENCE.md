@@ -1,10 +1,11 @@
 # Team Management & Gaming Platform API Reference
 
-This document describes all available REST API endpoints, authentication, request/response formats, and examples. Base URL assumes a local server.
+This document describes all available REST API endpoints, authentication, request/response formats, and examples.
 
-- Base URL: `http://localhost:8000`
-- API Prefix: `/api`
-- Auth: JWT Bearer tokens unless noted
+- **Production URL**: `https://qr-backend-rho.vercel.app`
+- **Local URL**: `http://localhost:8000`
+- **API Prefix**: `/api`
+- **Auth**: JWT Bearer tokens unless noted
 
 ---
 

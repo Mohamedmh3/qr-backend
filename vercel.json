@@ -3,35 +3,13 @@
   "builds": [
     {
       "src": "qr_access_backend/wsgi.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.9"
-      }
-    },
-    {
-      "src": "build_files.sh",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "staticfiles_build"
-      }
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/media/(.*)",
-      "dest": "/media/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "qr_access_backend/wsgi.py"
     }
-  ],
-  "env": {
-    "DJANGO_SETTINGS_MODULE": "qr_access_backend.settings"
-  }
+  ]
 }

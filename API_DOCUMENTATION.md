@@ -2,7 +2,8 @@
 
 ## Base URL
 ```
-http://localhost:8000/api
+Production: https://qr-backend-rho.vercel.app/api
+Local: http://localhost:8000/api
 ```
 
 ---

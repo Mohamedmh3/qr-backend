@@ -358,6 +358,577 @@ curl http://localhost:8000/api/me/ \
 
 ---
 
+### 9. Create Team
+
+**Endpoint:** `POST /api/teams/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Create a new team for the authenticated user.
+
+**Request Body:**
+```json
+{
+  "team_name": "string (required)"
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "team_id": "TEAM-XXXXXXXX",
+  "team_name": "string",
+  "user": "user_id",
+  "user_name": "string",
+  "total_games": 0,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "is_active": true
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Validation error
+- `401 Unauthorized` - Missing or invalid access token
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/teams/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{
+    "team_name": "Warriors"
+  }'
+```
+
+---
+
+### 10. List User Teams
+
+**Endpoint:** `GET /api/teams/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Get all teams created by the authenticated user.
+
+**Success Response (200 OK):**
+```json
+{
+  "teams": [
+    {
+      "team_id": "TEAM-XXXXXXXX",
+      "team_name": "string",
+      "user": "user_id",
+      "user_name": "string",
+      "total_games": 5,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "is_active": true
+    }
+  ],
+  "count": 1
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8000/api/teams/ \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+### 11. Get Team Details
+
+**Endpoint:** `GET /api/teams/<team_id>/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Get detailed team information including all game results.
+
+**URL Parameters:**
+- `team_id` (string) - Team ID (e.g., TEAM-XXXXXXXX)
+
+**Success Response (200 OK):**
+```json
+{
+  "team_id": "TEAM-XXXXXXXX",
+  "team_name": "string",
+  "user": "user_id",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "is_active": true,
+  "game_results": [
+    {
+      "result_id": "RESULT-XXXXXXXX",
+      "user": "user_id",
+      "user_name": "string",
+      "team": "team_id",
+      "team_name": "string",
+      "game": "game_id",
+      "game_name": "string",
+      "points_scored": 100,
+      "played_at": "2024-01-01T00:00:00Z",
+      "notes": "string",
+      "verified_by_admin": false,
+      "admin_user": null,
+      "admin_name": null
+    }
+  ],
+  "total_points": 100
+}
+```
+
+**Error Responses:**
+- `404 Not Found` - Team not found or not owned by user
+- `401 Unauthorized` - Missing or invalid access token
+
+**Example:**
+```bash
+curl http://localhost:8000/api/teams/TEAM-XXXXXXXX/ \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+### 12. Update Team
+
+**Endpoint:** `PUT /api/teams/<team_id>/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Update team information.
+
+**URL Parameters:**
+- `team_id` (string) - Team ID
+
+**Request Body:**
+```json
+{
+  "team_name": "string (optional)"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "team_id": "TEAM-XXXXXXXX",
+  "team_name": "Updated Name",
+  "user": "user_id",
+  "user_name": "string",
+  "total_games": 5,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "is_active": true
+}
+```
+
+**Error Responses:**
+- `404 Not Found` - Team not found
+- `400 Bad Request` - Validation error
+- `401 Unauthorized` - Missing or invalid access token
+
+**Example:**
+```bash
+curl -X PUT http://localhost:8000/api/teams/TEAM-XXXXXXXX/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{
+    "team_name": "Updated Warriors"
+  }'
+```
+
+---
+
+### 13. Delete Team
+
+**Endpoint:** `DELETE /api/teams/<team_id>/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Soft delete a team (sets is_active to false).
+
+**URL Parameters:**
+- `team_id` (string) - Team ID
+
+**Success Response (200 OK):**
+```json
+{
+  "message": "Team deleted successfully"
+}
+```
+
+**Error Responses:**
+- `404 Not Found` - Team not found
+- `401 Unauthorized` - Missing or invalid access token
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:8000/api/teams/TEAM-XXXXXXXX/ \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+### 14. List All Games
+
+**Endpoint:** `GET /api/games/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Get all active games available in the system.
+
+**Success Response (200 OK):**
+```json
+{
+  "games": [
+    {
+      "game_id": "GAME-XXXXXXXX",
+      "game_name": "Basketball",
+      "game_description": "Street basketball game",
+      "max_points": 100,
+      "min_points": 0,
+      "is_active": true,
+      "total_plays": 25,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8000/api/games/ \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+### 15. Create Game Result
+
+**Endpoint:** `POST /api/results/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Record a game result for the authenticated user.
+
+**Request Body:**
+```json
+{
+  "team": "TEAM-XXXXXXXX (required)",
+  "game": "GAME-XXXXXXXX (required)",
+  "points_scored": 100,
+  "notes": "string (optional)"
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "result_id": "RESULT-XXXXXXXX",
+  "user": "user_id",
+  "user_name": "string",
+  "team": "team_id",
+  "team_name": "string",
+  "game": "game_id",
+  "game_name": "string",
+  "points_scored": 100,
+  "played_at": "2024-01-01T00:00:00Z",
+  "notes": "string",
+  "verified_by_admin": false,
+  "admin_user": null,
+  "admin_name": null
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Validation error
+- `401 Unauthorized` - Missing or invalid access token
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/results/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{
+    "team": "TEAM-XXXXXXXX",
+    "game": "GAME-XXXXXXXX",
+    "points_scored": 85,
+    "notes": "Great performance!"
+  }'
+```
+
+---
+
+### 16. List User Game Results
+
+**Endpoint:** `GET /api/results/`
+
+**Authentication:** Required (Bearer token)
+
+**Description:** Get all game results for the authenticated user.
+
+**Success Response (200 OK):**
+```json
+{
+  "results": [
+    {
+      "result_id": "RESULT-XXXXXXXX",
+      "user": "user_id",
+      "user_name": "string",
+      "team": "team_id",
+      "team_name": "string",
+      "game": "game_id",
+      "game_name": "string",
+      "points_scored": 100,
+      "played_at": "2024-01-01T00:00:00Z",
+      "notes": "string",
+      "verified_by_admin": false,
+      "admin_user": null,
+      "admin_name": null
+    }
+  ],
+  "count": 1
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8000/api/results/ \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## Admin Endpoints
+
+### 17. Create Game (Admin Only)
+
+**Endpoint:** `POST /api/admin/games/`
+
+**Authentication:** Required (Admin Bearer token)
+
+**Description:** Create a new game in the system (admin only).
+
+**Request Body:**
+```json
+{
+  "game_name": "string (required)",
+  "game_description": "string (optional)",
+  "max_points": 100,
+  "min_points": 0
+}
+```
+
+**Success Response (201 Created):**
+```json
+{
+  "game_id": "GAME-XXXXXXXX",
+  "game_name": "Basketball",
+  "game_description": "Street basketball game",
+  "max_points": 100,
+  "min_points": 0,
+  "is_active": true,
+  "total_plays": 0,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Error Responses:**
+- `403 Forbidden` - Admin access required
+- `400 Bad Request` - Validation error
+- `401 Unauthorized` - Missing or invalid access token
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/admin/games/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_access_token>" \
+  -d '{
+    "game_name": "Soccer",
+    "game_description": "5v5 soccer match",
+    "max_points": 50,
+    "min_points": 0
+  }'
+```
+
+---
+
+### 18. Update Game (Admin Only)
+
+**Endpoint:** `PUT /api/admin/games/<game_id>/`
+
+**Authentication:** Required (Admin Bearer token)
+
+**Description:** Update game information (admin only).
+
+**URL Parameters:**
+- `game_id` (string) - Game ID
+
+**Request Body:**
+```json
+{
+  "game_name": "string (optional)",
+  "game_description": "string (optional)",
+  "max_points": 100,
+  "min_points": 0,
+  "is_active": true
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "game_id": "GAME-XXXXXXXX",
+  "game_name": "Updated Name",
+  "game_description": "Updated description",
+  "max_points": 100,
+  "min_points": 0,
+  "is_active": true,
+  "total_plays": 25,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**Error Responses:**
+- `403 Forbidden` - Admin access required
+- `404 Not Found` - Game not found
+- `400 Bad Request` - Validation error
+
+**Example:**
+```bash
+curl -X PUT http://localhost:8000/api/admin/games/GAME-XXXXXXXX/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_access_token>" \
+  -d '{
+    "game_name": "Updated Soccer",
+    "is_active": false
+  }'
+```
+
+---
+
+### 19. List All Results (Admin Only)
+
+**Endpoint:** `GET /api/admin/results/`
+
+**Authentication:** Required (Admin Bearer token)
+
+**Description:** Get all game results with optional filtering (admin only).
+
+**Query Parameters:**
+- `user_id` (string, optional) - Filter by user ID or email
+- `team_id` (string, optional) - Filter by team ID
+- `game_id` (string, optional) - Filter by game ID
+
+**Success Response (200 OK):**
+```json
+{
+  "results": [
+    {
+      "result_id": "RESULT-XXXXXXXX",
+      "user": "user_id",
+      "user_name": "string",
+      "team": "team_id",
+      "team_name": "string",
+      "game": "game_id",
+      "game_name": "string",
+      "points_scored": 100,
+      "played_at": "2024-01-01T00:00:00Z",
+      "notes": "string",
+      "verified_by_admin": true,
+      "admin_user": "admin_user_id",
+      "admin_name": "Admin Name"
+    }
+  ],
+  "count": 1
+}
+```
+
+**Error Responses:**
+- `403 Forbidden` - Admin access required
+
+**Examples:**
+```bash
+# Get all results
+curl http://localhost:8000/api/admin/results/ \
+  -H "Authorization: Bearer <admin_access_token>"
+
+# Filter by user
+curl "http://localhost:8000/api/admin/results/?user_id=user@example.com" \
+  -H "Authorization: Bearer <admin_access_token>"
+
+# Filter by team
+curl "http://localhost:8000/api/admin/results/?team_id=TEAM-XXXXXXXX" \
+  -H "Authorization: Bearer <admin_access_token>"
+
+# Filter by game
+curl "http://localhost:8000/api/admin/results/?game_id=GAME-XXXXXXXX" \
+  -H "Authorization: Bearer <admin_access_token>"
+```
+
+---
+
+### 20. Update Game Result (Admin Only)
+
+**Endpoint:** `PUT /api/admin/results/<result_id>/`
+
+**Authentication:** Required (Admin Bearer token)
+
+**Description:** Update and verify a game result (admin only).
+
+**URL Parameters:**
+- `result_id` (string) - Result ID
+
+**Request Body:**
+```json
+{
+  "points_scored": 100,
+  "notes": "string (optional)"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "result_id": "RESULT-XXXXXXXX",
+  "user": "user_id",
+  "user_name": "string",
+  "team": "team_id",
+  "team_name": "string",
+  "game": "game_id",
+  "game_name": "string",
+  "points_scored": 100,
+  "played_at": "2024-01-01T00:00:00Z",
+  "notes": "Verified by admin",
+  "verified_by_admin": true,
+  "admin_user": "admin_user_id",
+  "admin_name": "Admin Name"
+}
+```
+
+**Error Responses:**
+- `403 Forbidden` - Admin access required
+- `404 Not Found` - Result not found
+- `400 Bad Request` - Validation error
+
+**Example:**
+```bash
+curl -X PUT http://localhost:8000/api/admin/results/RESULT-XXXXXXXX/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_access_token>" \
+  -d '{
+    "points_scored": 95,
+    "notes": "Adjusted after review"
+  }'
+```
+
+---
+
 ## Status Codes
 
 | Code | Description |

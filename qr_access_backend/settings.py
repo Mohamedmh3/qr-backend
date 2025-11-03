@@ -78,11 +78,10 @@ WSGI_APPLICATION = 'qr_access_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': os.getenv('DB_NAME', 'qr_access_system'),
+        'NAME': 'qr_access_system',  # database name on MongoDB Atlas
         'ENFORCE_SCHEMA': False,
         'CLIENT': {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'port': int(os.getenv('DB_PORT', 27017)),
+            'host': 'mongodb+srv://syo358814_db_user:mK2hpHOWlxktrlX5@cluster0.8hto9nz.mongodb.net/qr_access_system?retryWrites=true&w=majority',
         }
     }
 }
@@ -218,6 +217,18 @@ AUTHENTICATION_BACKENDS = [
 
 # Disable last_login signal to avoid djongo issues
 SIGNALS_ENABLED = False
+
+
+# Cache Configuration (In-Memory for QR verification)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'qr-verification-cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,  # Maximum number of cached items
+        }
+    }
+}
 
 
 # Swagger UI Configuration (drf-yasg)

@@ -21,8 +21,9 @@ def get_tokens_for_user(user):
         dict: Dictionary containing access and refresh tokens
     """
     try:
-        # Convert ObjectId to string for JWT payload
-        user_id_str = str(user.id)
+        # Convert primary key to string for JWT payload (pk is safest)
+        user_id_val = getattr(user, 'pk', None) or getattr(user, 'id', None)
+        user_id_str = str(user_id_val)
         
         # Create refresh token with custom claims
         refresh = RefreshToken()
@@ -45,7 +46,8 @@ def get_tokens_for_user(user):
         logger.error(f"Error generating tokens for user {user.email}: {e}")
         # Fallback to simple token generation
         refresh = RefreshToken()
-        refresh['user_id'] = str(user.id)
+        fallback_id = str(getattr(user, 'pk', None) or getattr(user, 'id', None))
+        refresh['user_id'] = fallback_id
         
         return {
             'refresh': str(refresh),

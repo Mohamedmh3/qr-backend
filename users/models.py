@@ -9,6 +9,7 @@ from django.utils import timezone
 from datetime import datetime
 import uuid
 import os
+from bson import ObjectId
 from utils.qr_generator import generate_unique_qr_id, generate_qr_code, delete_qr_code
 import logging
 
@@ -82,6 +83,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('admin', 'Admin'),
     ]
     
+    # Primary key field - using CharField to store MongoDB ObjectId as string
+    id = models.CharField(max_length=24, primary_key=True, editable=False)
+    
     # User identification fields
     email = models.EmailField(
         verbose_name='email address',
@@ -133,38 +137,32 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = 'user'
         verbose_name_plural = 'users'
         ordering = ['-date_joined']
+        indexes = [
+            models.Index(fields=['qr_id'], name='user_qr_id_idx'),
+            models.Index(fields=['email'], name='user_email_idx'),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.email})"
     
-    @property
-    def id(self):
-        """
-        Return the MongoDB ObjectId as string.
-        """
-        # Check if id is already set in __dict__
-        if 'id' in self.__dict__:
-            return self.__dict__['id']
-        
-        # Fallback to _id or pk
-        if hasattr(self, '_id') and self._id:
-            return str(self._id)
-        elif hasattr(self, 'pk') and self.pk:
-            return str(self.pk)
-        
-        return super().id
+    # Removed custom id property to avoid interfering with Django PK handling
     
     def save(self, *args, **kwargs):
         """
-        Override save method to generate QR ID and QR code on creation.
+        Override save method to generate ID and QR ID on creation.
         """
         # Handle update_fields parameter for last_login updates
         if 'update_fields' in kwargs and 'last_login' in kwargs['update_fields']:
             # For last_login updates, just call parent save
             return super().save(*args, **kwargs)
         
+        # Generate ID if this is a new user (MongoDB ObjectId as string)
+        if not self.id:
+            self.id = str(ObjectId())
+            logger.info(f"Generated ID for new user: {self.id}")
+        
         # Generate QR ID if this is a new user
-        if not self.pk and not self.qr_id:
+        if not self.qr_id:
             # Generate unique QR ID
             self.qr_id = generate_unique_qr_id()
             
@@ -184,30 +182,12 @@ class User(AbstractBaseUser, PermissionsMixin):
             
             logger.info(f"Generated QR ID for new user: {self.qr_id}")
         
-        # Save the user first to get an ID
+        # Save the user
         super().save(*args, **kwargs)
-        
-        # Generate QR code if it doesn't exist
-        if not self.qr_image:
-            try:
-                file_path, file_content = generate_qr_code(self.qr_id, self.name)
-                self.qr_image = file_path
 
-                # Save the QR code file using default storage
-                from django.core.files.storage import default_storage
-                saved_path = default_storage.save(file_path, file_content)
-
-                # Force save the qr_image field to database
-                super().save(update_fields=['qr_image'])
-
-                logger.info(f"Generated QR code for user {self.email}: {saved_path}")
-            except Exception as e:
-                logger.error(f"Error generating QR code for user {self.email}: {e}")
-                # Set a fallback text file
-                self.qr_image = f"qr_codes/{self.qr_id}.txt"
-
-        # Always save to ensure all changes are persisted
-        super().save(*args, **kwargs)
+        # NOTE: Skip QR image generation here to avoid issues.
+        # QR generation can be handled lazily via login or a separate endpoint.
+        return
     
     def delete(self, *args, **kwargs):
         """
@@ -256,3 +236,89 @@ class User(AbstractBaseUser, PermissionsMixin):
     def has_module_perms(self, app_label):
         """Does the user have permissions to view the app `app_label`?"""
         return True if self.is_superuser else False
+
+
+class Team(models.Model):
+    """Team model for user-created teams"""
+    team_id = models.CharField(max_length=20, unique=True, primary_key=True)
+    team_name = models.CharField(max_length=255)
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='teams')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'teams'
+        ordering = ['-created_at']
+    
+    def save(self, *args, **kwargs):
+        """Generate team_id if not set"""
+        if not self.team_id:
+            self.team_id = f"TEAM-{uuid.uuid4().hex[:8].upper()}"
+            logger.info(f"Generated team_id: {self.team_id}")
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.team_name} (Owner: {self.user.name})"
+
+
+class Game(models.Model):
+    """Game model for available games"""
+    game_id = models.CharField(max_length=20, unique=True, primary_key=True)
+    game_name = models.CharField(max_length=255, unique=True)
+    game_description = models.TextField(blank=True, null=True)
+    max_points = models.IntegerField(default=100)
+    min_points = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'games'
+        ordering = ['game_name']
+    
+    def save(self, *args, **kwargs):
+        """Generate game_id if not set"""
+        if not self.game_id:
+            self.game_id = f"GAME-{uuid.uuid4().hex[:8].upper()}"
+            logger.info(f"Generated game_id: {self.game_id}")
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return self.game_name
+
+
+class GameResult(models.Model):
+    """Game results linking users, teams, and games"""
+    result_id = models.CharField(max_length=20, unique=True, primary_key=True)
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='game_results')
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='game_results')
+    game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='results')
+    points_scored = models.IntegerField(default=0)
+    played_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+    verified_by_admin = models.BooleanField(default=False)
+    admin_user = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_results')
+    
+    class Meta:
+        db_table = 'game_results'
+        ordering = ['-played_at']
+    
+    def save(self, *args, **kwargs):
+        """Generate result_id and validate points"""
+        if not self.result_id:
+            self.result_id = f"RESULT-{uuid.uuid4().hex[:8].upper()}"
+            logger.info(f"Generated result_id: {self.result_id}")
+        
+        # Validate points are within game limits
+        if self.game:
+            if self.points_scored < self.game.min_points or self.points_scored > self.game.max_points:
+                from django.core.exceptions import ValidationError
+                raise ValidationError(
+                    f"Points must be between {self.game.min_points} and {self.game.max_points}"
+                )
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.user.name} - {self.team.team_name} - {self.game.game_name}: {self.points_scored} pts"

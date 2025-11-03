@@ -208,3 +208,8 @@ def generate_html_qr_code(qr_id, name):
         raise
 
 
+
+
+
+
+

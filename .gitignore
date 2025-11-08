@@ -39,3 +39,5 @@ Thumbs.db
 # QR Codes (except example)
 media/qr_codes/*.png
 !media/qr_codes/.gitkeep
+
+.vercel

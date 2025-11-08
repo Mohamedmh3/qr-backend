@@ -1,3 +1,6 @@
+# Core dependencies
+setuptools>=65.0.0  # Required for pkg_resources (used by simplejwt)
+
 # Django Framework (4.1.13 is required for djongo compatibility)
 Django==4.1.13
 djangorestframework==3.14.0

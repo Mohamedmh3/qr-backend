@@ -628,7 +628,7 @@ class GameListView(APIView):
     """
     GET /api/games/ - List all active games
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get(self, request):
         try:

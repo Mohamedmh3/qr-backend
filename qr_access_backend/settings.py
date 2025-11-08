@@ -22,7 +22,7 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 # Allowed hosts - include Vercel domains
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-if os.getenv('VERCEL', False):
+if os.getenv('VERCEL'):
     ALLOWED_HOSTS.extend(['.vercel.app', '.now.sh'])
 
 
@@ -252,6 +252,23 @@ SWAGGER_SETTINGS = {
 
 
 # Logging Configuration
+# Use file logging only when not on Vercel (serverless environments have read-only filesystems)
+IS_VERCEL = os.getenv('VERCEL') is not None
+
+LOGGING_HANDLERS = {
+    'console': {
+        'class': 'logging.StreamHandler',
+        'formatter': 'verbose',
+    },
+}
+
+if not IS_VERCEL:
+    LOGGING_HANDLERS['file'] = {
+        'class': 'logging.FileHandler',
+        'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+        'formatter': 'verbose',
+    }
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -261,37 +278,28 @@ LOGGING = {
             'style': '{',
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
-            'formatter': 'verbose',
-        },
-    },
+    'handlers': LOGGING_HANDLERS,
     'root': {
         'handlers': ['console'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file'] if not IS_VERCEL else ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'users': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file'] if not IS_VERCEL else ['console'],
             'level': 'DEBUG',
             'propagate': False,
         },
     },
 }
 
-# Create logs directory if it doesn't exist
-os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
-
-# Create media directories if they don't exist
-os.makedirs(os.path.join(MEDIA_ROOT, 'qr_codes'), exist_ok=True)
+# Create directories only when not on Vercel (read-only filesystem)
+if not IS_VERCEL:
+    # Create logs directory if it doesn't exist
+    os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+    # Create media directories if they don't exist
+    os.makedirs(os.path.join(MEDIA_ROOT, 'qr_codes'), exist_ok=True)

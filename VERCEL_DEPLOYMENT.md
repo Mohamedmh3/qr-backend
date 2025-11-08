@@ -1,5 +1,27 @@
 # Django Backend Deployment to Vercel
 
+## ✅ Recent Fixes (November 2025)
+
+The following issues have been fixed to make the deployment work:
+
+1. **WSGI Handler**: Changed from ASGI to WSGI in `vercel_handler.py`
+   - Vercel's `@vercel/python` expects WSGI applications
+   - Previous ASGI handler was causing `FUNCTION_INVOCATION_FAILED` errors
+
+2. **Read-Only Filesystem**: Updated `settings.py` to handle Vercel's serverless environment
+   - Disabled file logging on Vercel (console logging only)
+   - Prevented directory creation (`logs/`, `media/qr_codes/`) on read-only filesystem
+   - Added `IS_VERCEL` environment detection
+
+3. **ALLOWED_HOSTS**: Fixed Vercel environment detection
+   - Changed from `os.getenv('VERCEL', False)` to `os.getenv('VERCEL')`
+   - Properly adds `.vercel.app` and `.now.sh` domains
+
+### What Changed:
+- ✅ `vercel_handler.py` - Now uses WSGI instead of ASGI
+- ✅ `qr_access_backend/settings.py` - Serverless-friendly logging and directory handling
+- ✅ `users/views.py` - Games endpoint no longer requires authentication
+
 ## ⚠️ Important Notice
 
 **Vercel is NOT recommended for Django applications** because:

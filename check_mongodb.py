@@ -9,14 +9,20 @@ django.setup()
 from pymongo import MongoClient
 from django.conf import settings
 
-# Connect to MongoDB
+# Connect to MongoDB (prefer full URI for Atlas)
 db_name = settings.DATABASES['default']['NAME']
 db_config = settings.DATABASES['default'].get('CLIENT', {})
-host = db_config.get('host', 'localhost')
-port = db_config.get('port', 27017)
+host = db_config.get('host')
 
-client = MongoClient(host, port)
-db = client[db_name]
+if host:
+    # If a full connection string is provided, use it directly
+    client = MongoClient(host)
+    db = client.get_database() or client[db_name]
+else:
+    # Fallback to localhost + port
+    port = db_config.get('port', 27017)
+    client = MongoClient('localhost', port)
+    db = client[db_name]
 
 print("="*60)
 print("  MONGODB COLLECTIONS STATUS")

@@ -40,4 +40,8 @@ Thumbs.db
 media/qr_codes/*.png
 !media/qr_codes/.gitkeep
 
+<<<<<<< Updated upstream
 .vercel
+=======
+node_modules/
+>>>>>>> Stashed changes

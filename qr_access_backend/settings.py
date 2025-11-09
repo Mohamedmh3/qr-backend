@@ -78,14 +78,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'qr_access_backend.wsgi.application'
 
 
-# Database - MongoDB with djongo
+# Database - MongoDB with djongo (Atlas-ready via env)
+# Provide a full connection string in MONGODB_URI, e.g.:
+#   mongodb+srv://<user>:<pass>@cluster0.xxxxxx.mongodb.net/qr_access_system?retryWrites=true&w=majority
+MONGODB_DBNAME = os.getenv('MONGODB_DBNAME', 'qr_access_system')
+MONGODB_URI = "mongodb+srv://mhdmomendefda359_db_user:bviiOFNrrtYu2YY7@cluster0.8hto9nz.mongodb.net/?appName=Cluster0";
+# MONGODB_URI = os.getenv(
+#     'MONGODB_URI',
+#     f"mongodb+srv://syo358814_db_user:mK2hpHOWlxktrlX5@cluster0.8hto9nz.mongodb.net/{MONGODB_DBNAME}?retryWrites=true&w=majority"
+# )
+
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': 'qr_access_system',  # database name on MongoDB Atlas
+        'NAME': MONGODB_DBNAME,
         'ENFORCE_SCHEMA': False,
         'CLIENT': {
-            'host': 'mongodb+srv://syo358814_db_user:mK2hpHOWlxktrlX5@cluster0.8hto9nz.mongodb.net/qr_access_system?retryWrites=true&w=majority',
+            'host': MONGODB_URI,
         }
     }
 }
@@ -162,6 +171,19 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+]
+
+
+# In development, allow all origins to simplify local testing
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+
+# CSRF trusted origins (mainly for admin/forms; safe to include dev ports)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
 ]
 
 

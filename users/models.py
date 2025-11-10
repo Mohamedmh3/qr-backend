@@ -305,20 +305,29 @@ class GameResult(models.Model):
         ordering = ['-played_at']
     
     def save(self, *args, **kwargs):
-        """Generate result_id and validate points"""
+        """Generate result_id"""
         if not self.result_id:
             self.result_id = f"RESULT-{uuid.uuid4().hex[:8].upper()}"
             logger.info(f"Generated result_id: {self.result_id}")
         
-        # Validate points are within game limits
-        if self.game:
-            if self.points_scored < self.game.min_points or self.points_scored > self.game.max_points:
-                from django.core.exceptions import ValidationError
-                raise ValidationError(
-                    f"Points must be between {self.game.min_points} and {self.game.max_points}"
-                )
-        
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"{self.user.name} - {self.team.team_name} - {self.game.game_name}: {self.points_scored} pts"
+        try:
+            game_name = self.game.game_name if self.game else "Unknown Game"
+        except Game.DoesNotExist:
+            game_name = "Unknown Game"
+        except Exception:
+            game_name = "Unknown Game"
+        
+        try:
+            team_name = self.team.team_name if self.team else "Unknown Team"
+        except Exception:
+            team_name = "Unknown Team"
+        
+        try:
+            user_name = self.user.name if self.user else "Unknown User"
+        except Exception:
+            user_name = "Unknown User"
+        
+        return f"{user_name} - {team_name} - {game_name}: {self.points_scored} pts"

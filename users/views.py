@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
+from django.conf import settings
 
 from .models import User, Team, Game, GameResult
 from .serializers import (
@@ -111,15 +112,26 @@ class UserLoginView(APIView):
             - 200: Login successful with tokens
             - 400: Invalid credentials
         """
+        email = request.data.get('email', '').lower()
+        logger.info(f"Login attempt for email: {email}")
+        
         serializer = UserLoginSerializer(
             data=request.data,
             context={'request': request}
         )
         if serializer.is_valid():
             user = serializer.validated_data['user']
+            logger.info(f"Login successful for: {email}")
         else:
-            logger.warning(f"Login failed: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning(f"Login failed for {email}: {serializer.errors}")
+            # Return 401 for authentication failures
+            error_detail = serializer.errors.get('detail', serializer.errors.get('non_field_errors', ['Invalid email or password.']))
+            if isinstance(error_detail, list) and len(error_detail) > 0:
+                error_detail = error_detail[0]
+            return Response(
+                {'detail': str(error_detail)},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         
         # Get QR code URL (dedented - should run for all valid logins)
         from utils.qr_generator import get_qr_code_url
@@ -319,19 +331,22 @@ class UserListView(APIView):
         List all users using custom MongoDB queries.
         """
         try:
-            # Try Django ORM first
-            users = User.objects.filter(is_active=True)
+            # Try Django ORM first - filter in Python to avoid djongo boolean filter issues
+            all_users = User.objects.all()
+            users_list = [u for u in all_users if u.is_active]
 
             # Serialize users
-            serializer = UserSerializer(users, many=True, context={'request': request})
+            serializer = UserSerializer(users_list, many=True, context={'request': request})
 
             return Response({
                 'users': serializer.data,
-                'count': users.count()
+                'count': len(users_list)
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
+            import traceback
             logger.error(f"Error listing users: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Fallback to MongoDB helper
             try:
                 from utils.mongodb_queries import MongoDBQueryHelper
@@ -346,10 +361,15 @@ class UserListView(APIView):
                 }, status=status.HTTP_200_OK)
 
             except Exception as mongo_error:
+                import traceback
                 logger.error(f"MongoDB fallback also failed: {mongo_error}")
+                logger.error(f"MongoDB traceback: {traceback.format_exc()}")
+                # Last resort: return empty list instead of error
                 return Response({
-                    'error': 'Internal server error'
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    'users': [],
+                    'count': 0,
+                    'error': 'Unable to fetch users. Please check server logs.'
+                }, status=status.HTTP_200_OK)
     
     def list(self, request, *args, **kwargs):
         """
@@ -658,7 +678,7 @@ class GameResultListCreateView(APIView):
             return Response({'results': serializer.data, 'count': results.count()}, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Error listing results: {e}")
-            return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'AAAAAAAAAAAAAAAAAAhInternal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def post(self, request):
         try:
@@ -728,6 +748,7 @@ class AdminGameManagementView(APIView):
 class AdminResultManagementView(APIView):
     """
     GET /api/admin/results/ - List all results (Admin only)
+    POST /api/admin/results/ - Create result for any user (Admin only)
     PUT /api/admin/results/<result_id>/ - Update result (Admin only)
     """
     permission_classes = [permissions.IsAuthenticated]
@@ -758,6 +779,105 @@ class AdminResultManagementView(APIView):
             logger.error(f"Error listing results (admin): {e}")
             return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    def post(self, request):
+        """Create a result for any user (admin only)"""
+        if not request.user.is_admin():
+            return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            data = request.data.copy()
+            
+            # Get or validate user
+            user_id = data.get('user') or data.get('user_id')
+            if not user_id:
+                return Response({'error': 'user or user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get or create default team for user if not provided
+            team_id = data.get('team') or data.get('team_id')
+            if not team_id:
+                # First, try to get any existing active team for this user
+                all_user_teams = Team.objects.filter(user=user)
+                active_teams = [t for t in all_user_teams if t.is_active]
+                
+                if active_teams:
+                    # Use the first active team
+                    team = active_teams[0]
+                    logger.info(f"Using existing team {team.team_id} for user {user.email}")
+                else:
+                    # Create a default team for this user
+                    default_team, created = Team.objects.get_or_create(
+                        user=user,
+                        team_name=f"{user.name}'s Team",
+                        defaults={'is_active': True}
+                    )
+                    team = default_team
+                    logger.info(f"{'Created' if created else 'Found'} default team for user {user.email}")
+            else:
+                try:
+                    team = Team.objects.get(team_id=team_id)
+                except Team.DoesNotExist:
+                    return Response({'error': 'Team not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get or use first active game if not provided
+            game_id = data.get('game') or data.get('game_id')
+            if not game_id:
+                # Get first active game
+                all_games = Game.objects.all()
+                games = [g for g in all_games if g.is_active]
+                if not games:
+                    return Response({'error': 'No active games found. Please create a game first.'}, status=status.HTTP_400_BAD_REQUEST)
+                game = games[0]
+                logger.info(f"Using default game: {game.game_id}")
+            else:
+                try:
+                    game = Game.objects.get(game_id=game_id)
+                except Game.DoesNotExist:
+                    return Response({'error': 'Game not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Set default score to 1 if not provided (as user suggested)
+            if 'points_scored' not in data and 'score' not in data:
+                data['points_scored'] = 1
+            elif 'score' in data and 'points_scored' not in data:
+                data['points_scored'] = data.pop('score')
+            
+            # Prepare data for serializer
+            serializer_data = {
+                'user': user.pk,
+                'team': team.team_id,
+                'game': game.game_id,
+                'points_scored': data.get('points_scored', 1),
+                'notes': data.get('notes', 'Auto-created by admin'),
+            }
+            
+            serializer = GameResultSerializer(data=serializer_data, context={'request': request})
+            if serializer.is_valid():
+                try:
+                    result = serializer.save(admin_user=request.user, verified_by_admin=True)
+                    logger.info(f"Admin {request.user.email} created result {result.result_id} for user {user.email}")
+                    # Refresh serializer to include all fields
+                    serializer = GameResultSerializer(result, context={'request': request})
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                except Exception as save_error:
+                    from django.core.exceptions import ValidationError
+                    if isinstance(save_error, ValidationError):
+                        logger.warning(f"Result validation failed: {save_error}")
+                        return Response({'error': str(save_error)}, status=status.HTTP_400_BAD_REQUEST)
+                    raise
+            logger.warning(f"Admin result create validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error creating result (admin): {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return Response({
+                'error': 'Internal server error',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     def put(self, request, result_id):
         if not request.user.is_admin():
             return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
@@ -765,13 +885,37 @@ class AdminResultManagementView(APIView):
             result = GameResult.objects.filter(result_id=result_id).first()
             if not result:
                 return Response({'error': 'Result not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Log the incoming data for debugging
+            logger.info(f"Admin update request for {result_id}: {request.data}")
+            
             serializer = GameResultSerializer(result, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
-                updated = serializer.save(admin_user=request.user, verified_by_admin=True)
-                logger.info(f"Admin {request.user.email} updated result {result_id}")
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                try:
+                    updated = serializer.save(admin_user=request.user, verified_by_admin=True)
+                    logger.info(f"Admin {request.user.email} updated result {result_id}")
+                    # Refresh serializer data to include updated fields
+                    serializer = GameResultSerializer(updated, context={'request': request})
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                except Exception as save_error:
+                    logger.error(f"Error saving result update: {save_error}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    return Response({
+                        'error': 'Failed to save result update',
+                        'detail': str(save_error),
+                        'traceback': traceback.format_exc() if settings.DEBUG else None
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             logger.warning(f"Admin result update validation failed: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'Validation failed',
+                'details': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error updating result (admin): {e}")
-            return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return Response({
+                'error': 'Internal server error',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

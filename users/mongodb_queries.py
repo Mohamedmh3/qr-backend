@@ -23,28 +23,37 @@ class MongoDBQueryHelper:
         self.db = self.client[settings.DATABASES['default']['NAME']]
         self.collection = self.db['users_user']
     
-    def get_user_by_email(self, email: str) -> Optional[object]:
+    def get_user_by_email(self, email: str, include_password: bool = False) -> Optional[object]:
         """
         Get user by email using direct MongoDB query with caching.
+        
+        Args:
+            email: User email address
+            include_password: If True, include password hash (for authentication)
         """
-        # Check cache first
-        cache_key = f"user_email_{email.lower()}"
-        cached_user = cache.get(cache_key)
-        if cached_user:
-            logger.debug(f"User found in cache: {email}")
-            return cached_user
+        # Check cache first (but only if not including password, as cached users won't have password)
+        if not include_password:
+            cache_key = f"user_email_{email.lower()}"
+            cached_user = cache.get(cache_key)
+            if cached_user:
+                logger.debug(f"User found in cache: {email}")
+                return cached_user
         
         try:
+            # Include password if needed for authentication
+            projection = {} if include_password else {'password': 0}
             user_data = self.collection.find_one(
                 {'email': email.lower()},
-                {'password': 0}  # Exclude password from query for security
+                projection
             )
             
             if user_data:
                 user = self._create_user_from_data(user_data)
                 
-                # Cache for 5 minutes
-                cache.set(cache_key, user, 300)
+                # Only cache if password not included (for security)
+                if not include_password:
+                    cache_key = f"user_email_{email.lower()}"
+                    cache.set(cache_key, user, 300)
                 
                 logger.info(f"User retrieved from MongoDB: {email}")
                 return user

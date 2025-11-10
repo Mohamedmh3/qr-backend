@@ -1,0 +1,34 @@
+great!!! now it shows all users, but what missing is that all users got 0 score printed, some of them have scores tho. and one another important thing, i git this error message when i tried to enter HIGH SCORES page 
+
+Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 8 react-dom-client.development.js:6604:23
+    React 14
+        warnOnInvalidKey
+        runWithFiberInDEV
+        warnOnInvalidKey
+        reconcileChildrenArray
+        reconcileChildFibersImpl
+        createChildReconciler
+        reconcileChildren
+        beginWork
+        runWithFiberInDEV
+        performUnitOfWork
+        workLoopSync
+        renderRootSync
+        performWorkOnRoot
+        performWorkOnRootViaSchedulerTask
+    performWorkUntilDeadline scheduler.development.js:45
+    (Async: EventHandlerNonNull)
+    js scheduler.development.js:223
+    js scheduler.development.js:364
+    __require chunk-G3PMV62Z.js:8
+    js index.js:6
+    __require chunk-G3PMV62Z.js:8
+    React 2
+        js
+        js
+    __require chunk-G3PMV62Z.js:8
+    js React
+    __require chunk-G3PMV62Z.js:8
+    <anonymous> react-dom_client.js:20192
+
+

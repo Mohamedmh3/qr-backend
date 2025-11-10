@@ -163,17 +163,31 @@ class UserLoginSerializer(serializers.Serializer):
             try:
                 from .mongodb_queries import MongoDBQueryHelper
                 mongo_helper = MongoDBQueryHelper()
-                mongo_user = mongo_helper.get_user_by_email(email)
+                # Include password for authentication
+                mongo_user = mongo_helper.get_user_by_email(email, include_password=True)
 
                 if mongo_user and mongo_user.is_active:
                     try:
+                        # Check if password attribute exists
+                        has_password = hasattr(mongo_user, 'password') and mongo_user.password
+                        logger.debug(f"MongoDB user {email} has password attribute: {has_password}")
+                        
                         if mongo_user.check_password(password):
                             user = mongo_user
                             logger.info(f"User authenticated via MongoDB fallback: {email}")
+                        else:
+                            logger.warning(f"Password mismatch for {email} (password check returned False)")
+                            # Log password hash info for debugging (first 20 chars only)
+                            if hasattr(mongo_user, 'password') and mongo_user.password:
+                                logger.debug(f"Stored password hash (first 20 chars): {mongo_user.password[:20]}...")
                     except Exception as e:
                         logger.warning(f"MongoDB password check failed: {e}")
+                        import traceback
+                        logger.warning(f"Traceback: {traceback.format_exc()}")
             except Exception as e:
                 logger.error(f"MongoDB authentication fallback failed: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
 
         # Final DEBUG fallback (no password check)
         if not user and getattr(settings, 'DEBUG', False):
@@ -304,15 +318,69 @@ class GameResultSerializer(serializers.ModelSerializer):
     team_name = serializers.CharField(source='team.team_name', read_only=True)
     game_name = serializers.CharField(source='game.game_name', read_only=True)
     admin_name = serializers.CharField(source='admin_user.name', read_only=True, allow_null=True)
+    # Add 'score' as an alias for 'points_scored' for frontend compatibility
+    score = serializers.IntegerField(source='points_scored', required=False)
     
     class Meta:
         model = GameResult
         fields = (
             'result_id', 'user', 'user_name', 'team', 'team_name',
-            'game', 'game_name', 'points_scored', 'played_at', 'notes',
+            'game', 'game_name', 'points_scored', 'score', 'played_at', 'notes',
             'verified_by_admin', 'admin_user', 'admin_name'
         )
         read_only_fields = ('result_id', 'played_at', 'verified_by_admin', 'admin_user')
+    
+    def to_representation(self, instance):
+        """Override to include 'score' field in response"""
+        representation = super().to_representation(instance)
+        # Ensure 'score' is present in the response (alias for points_scored)
+        # Always set score from points_scored if score is not already set or is None
+        if 'points_scored' in representation:
+            points_value = representation.get('points_scored')
+            # Set score to points_scored value (even if it's 0 or None)
+            if 'score' not in representation or representation.get('score') is None:
+                representation['score'] = points_value if points_value is not None else 0
+        elif 'score' not in representation:
+            # If points_scored is missing, default score to 0
+            representation['score'] = 0
+        return representation
+    
+    def to_internal_value(self, data):
+        """Override to map 'score' to 'points_scored' when receiving data"""
+        # If 'score' is provided, map it to 'points_scored'
+        if isinstance(data, dict):
+            if 'score' in data and 'points_scored' not in data:
+                data = data.copy()
+                data['points_scored'] = data.pop('score')
+        return super().to_internal_value(data)
+    
+    def save(self, **kwargs):
+        """Override save to handle admin_user and verified_by_admin"""
+        # Extract admin-specific kwargs
+        admin_user = kwargs.pop('admin_user', None)
+        verified_by_admin = kwargs.pop('verified_by_admin', False)
+        
+        # Call parent save first to get/update the instance
+        instance = super().save(**kwargs)
+        
+        # Set admin fields after instance is available
+        if admin_user is not None:
+            instance.admin_user = admin_user
+        if verified_by_admin:
+            instance.verified_by_admin = True
+        
+        # Save again if admin fields were set (only if they changed)
+        if admin_user is not None or verified_by_admin:
+            # Use update_fields to only update specific fields
+            update_fields = []
+            if admin_user is not None:
+                update_fields.append('admin_user')
+            if verified_by_admin:
+                update_fields.append('verified_by_admin')
+            if update_fields:
+                instance.save(update_fields=update_fields)
+        
+        return instance
 
 
 class TeamWithResultsSerializer(serializers.ModelSerializer):

@@ -82,11 +82,11 @@ WSGI_APPLICATION = 'qr_access_backend.wsgi.application'
 # Provide a full connection string in MONGODB_URI, e.g.:
 #   mongodb+srv://<user>:<pass>@cluster0.xxxxxx.mongodb.net/qr_access_system?retryWrites=true&w=majority
 MONGODB_DBNAME = os.getenv('MONGODB_DBNAME', 'qr_access_system')
-MONGODB_URI = "mongodb+srv://mhdmomendefda359_db_user:bviiOFNrrtYu2YY7@cluster0.8hto9nz.mongodb.net/?appName=Cluster0";
-# MONGODB_URI = os.getenv(
-#     'MONGODB_URI',
-#     f"mongodb+srv://syo358814_db_user:mK2hpHOWlxktrlX5@cluster0.8hto9nz.mongodb.net/{MONGODB_DBNAME}?retryWrites=true&w=majority"
-# )
+# MONGODB_URI = "mongodb+srv://mhdmomendefda359_db_user:bviiOFNrrtYu2YY7@cluster0.8hto9nz.mongodb.net/?appName=Cluster0";
+MONGODB_URI = os.getenv(
+    'MONGODB_URI',
+    f"mongodb+srv://syo358814_db_user:mK2hpHOWlxktrlX5@cluster0.8hto9nz.mongodb.net/{MONGODB_DBNAME}?retryWrites=true&w=majority"
+)
 
 DATABASES = {
     'default': {

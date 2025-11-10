@@ -33,10 +33,16 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = storage.token
-  if (token) {
-    config.headers = config.headers || {}
-    config.headers.Authorization = `Bearer ${token}`
+  // Don't add Authorization header for login/register endpoints
+  const publicEndpoints = ['/login/', '/register/', '/debug/login/']
+  const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.endsWith(endpoint))
+  
+  if (!isPublicEndpoint) {
+    const token = storage.token
+    if (token) {
+      config.headers = config.headers || {}
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
   return config
 })
@@ -56,6 +62,7 @@ export type AdminResult = {
   game: string
   game_name: string
   points_scored: number
+  score?: number  // Alias for points_scored (returned by API)
   played_at: string
   notes?: string | null
   verified_by_admin: boolean
@@ -77,6 +84,28 @@ export async function fetchAllResults(params?: {
 
 export async function updateResult(result_id: string, payload: Partial<AdminResult>) {
   const { data } = await api.put<AdminResult>(`/admin/results/${result_id}/`, payload)
+  return data
+}
+
+export type Game = {
+  game_id: string
+  game_name: string
+  game_description?: string
+  max_points: number
+  min_points: number
+  is_active: boolean
+  total_plays?: number
+  created_at?: string
+  updated_at?: string
+}
+
+export type GamesResponse = {
+  games: Game[]
+  count: number
+}
+
+export async function fetchGames(): Promise<GamesResponse> {
+  const { data } = await api.get<GamesResponse>('/games/')
   return data
 }
 

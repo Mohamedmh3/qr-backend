@@ -27,7 +27,8 @@ class MongoDBUserBackend(ModelBackend):
             # Use custom MongoDB query helper
             from .mongodb_queries import MongoDBQueryHelper
             mongo_helper = MongoDBQueryHelper()
-            user = mongo_helper.get_user_by_email(username)
+            # Include password for authentication
+            user = mongo_helper.get_user_by_email(username, include_password=True)
             
             if user and user.check_password(password):
                 logger.info(f"User authenticated: {user.email}")
@@ -38,14 +39,41 @@ class MongoDBUserBackend(ModelBackend):
                 
         except Exception as e:
             logger.error(f"Authentication error: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
     
     def get_user(self, user_id):
         """
-        Get user by ID.
+        Get user by ID with MongoDB fallback.
         """
         User = get_user_model()
         try:
-            return User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return None
+            # Try Django ORM first
+            user = User.objects.filter(pk=user_id).first()
+            if user:
+                return user
+        except Exception as e:
+            logger.warning(f"ORM get_user failed for {user_id}: {e}")
+        
+        # Fallback to MongoDB direct query
+        try:
+            from .mongodb_queries import MongoDBQueryHelper
+            from bson import ObjectId
+            
+            mongo_helper = MongoDBQueryHelper()
+            # Try to get user by ObjectId
+            try:
+                user_data = mongo_helper.collection.find_one({'_id': ObjectId(user_id)})
+            except:
+                # If ObjectId conversion fails, try as string
+                user_data = mongo_helper.collection.find_one({'_id': user_id})
+            
+            if user_data:
+                user = mongo_helper._create_user_from_data(user_data)
+                logger.info(f"User retrieved from MongoDB fallback: {user_id}")
+                return user
+        except Exception as e:
+            logger.error(f"MongoDB fallback get_user failed for {user_id}: {e}")
+        
+        return None

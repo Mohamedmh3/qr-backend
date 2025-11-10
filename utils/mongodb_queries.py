@@ -19,12 +19,25 @@ class MongoDBQueryHelper:
     def __init__(self):
         """Initialize MongoDB connection."""
         try:
-            # Get MongoDB URI from settings
+            # Get MongoDB URI and database name from settings
             mongo_uri = getattr(settings, 'MONGODB_URI', 'mongodb://localhost:27017/qr_access_db')
+            db_name = getattr(settings, 'MONGODB_DBNAME', 'qr_access_system')
 
             # Connect to MongoDB
             self.client = MongoClient(mongo_uri)
-            self.db = self.client.get_database()
+            # Get database by name (extract from URI if present, otherwise use db_name)
+            try:
+                # Try to get database name from URI
+                from urllib.parse import urlparse
+                parsed = urlparse(mongo_uri)
+                if parsed.path and parsed.path != '/':
+                    db_name_from_uri = parsed.path.lstrip('/').split('?')[0]
+                    if db_name_from_uri:
+                        db_name = db_name_from_uri
+            except Exception:
+                pass  # Use db_name from settings
+            
+            self.db = self.client[db_name]
 
             # Get collection name (default to users)
             self.collection_name = getattr(settings, 'MONGODB_COLLECTION', 'users_user')

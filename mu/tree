@@ -1,0 +1,3 @@
+#! /usr/bin/env bash
+
+tree -C -a -I ".venv|.git|node_modules|mu|.github|logs|migrations|__pycache__"
